@@ -20,6 +20,31 @@ type Module = {
   status: string;
 };
 
+type IngestionRun = {
+  id: number;
+  pipeline: string;
+  status: "RUNNING" | "SUCCESS" | "FAILED";
+  started_at: string;
+  finished_at: string | null;
+  records_fetched: number;
+  rows_affected: number;
+  error_message: string | null;
+};
+
+type SystemStatus = {
+  database: {
+    status: string;
+    asteroid_records: number;
+  };
+  cosmicwatch: {
+    status: string;
+    last_success_at: string | null;
+    age_hours: number | null;
+    records_stored: number;
+    recent_runs: IngestionRun[];
+  };
+};
+
 const MODULES = [
   {
     id: "cosmicwatch",
@@ -55,11 +80,21 @@ const MODULES = [
   },
 ];
 
+function formatTimestamp(value: string | null): string {
+  if (!value) return "NEVER";
+
+  return new Date(value).toLocaleString("en-GB", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
 function App() {
   const [modules, setModules] = useState<Module[]>([]);
   const [apiOnline, setApiOnline] = useState(false);
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -84,15 +119,31 @@ function App() {
     } finally {
       setLoading(false);
     }
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/system/status"
+      );
+
+      if (!response.ok) {
+        throw new Error(`System status HTTP ${response.status}`);
+      }
+
+      const result: SystemStatus = await response.json();
+      setSystemStatus(result);
+    } catch (error) {
+      console.error("System monitoring error:", error);
+      setSystemStatus(null);
+    }
   }
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      void loadData();
-    });
+useEffect(() => {
+  const frame = requestAnimationFrame(() => {
+    void loadData();
+  });
 
-    return () => cancelAnimationFrame(frame);
-  }, []);
+  return () => cancelAnimationFrame(frame);
+}, []);
 
   const selected = MODULES.find((m) => m.id === activeModule);
 
@@ -168,11 +219,15 @@ function App() {
               Icon: Activity,
             },
             {
-              label: "DATABASE",
-              value: "NOT CONFIGURED",
-              color: "#A3A3A3",
-              Icon: Database,
-            },
+              label: "DATA INGESTION",
+              value: systemStatus?.cosmicwatch.status ?? "UNKNOWN",
+              color: systemStatus?.cosmicwatch.status === "SUCCESS"
+                ? "#4ADE80"
+                : systemStatus?.cosmicwatch.status === "FAILED"
+                  ? "#F87171"
+                  : "#F59E0B",
+              Icon: Radio,
+            },                     
             {
               label: "DATA INGESTION",
               value: "NOT STARTED",
@@ -323,8 +378,14 @@ function App() {
                     {module.name}
                   </span>
                   <span className="font-mono text-[10px] text-[#777777]">
-                    NOT INITIALIZED
-                  </span>
+                    {module.id === "cosmicwatch"
+                      ? systemStatus?.cosmicwatch.last_success_at
+                        ? `UPDATED ${formatTimestamp(
+                            systemStatus.cosmicwatch.last_success_at
+                          )}`
+                        : "NO SUCCESSFUL RUN"
+                      : "NOT INITIALIZED"}
+                    </span>
                 </div>
               ))}
             </div>
@@ -335,25 +396,52 @@ function App() {
               <span className="font-mono text-[11px]">SYSTEM LOG</span>
               <Activity size={14} color="#777777" />
             </div>
-            <div className="space-y-3 p-4 font-mono text-[11px]">
-              <p className="text-[#888888]">
-                <span className="text-[#60A5FA]">[INFO]</span>{" "}
-                ASTRA frontend initialized
-              </p>
+            <div className="max-h-[210px] space-y-3 overflow-y-auto p-4 font-mono text-[11px]">
               <p className="text-[#888888]">
                 <span className={apiOnline ? "text-[#4ADE80]" : "text-[#F87171]"}>
                   {apiOnline ? "[OK]" : "[ERROR]"}
                 </span>{" "}
                 Backend API {apiOnline ? "connected" : "unavailable"}
               </p>
-              <p className="text-[#888888]">
-                <span className="text-[#F59E0B]">[PENDING]</span>{" "}
-                Database initialization
-              </p>
-              <p className="text-[#888888]">
-                <span className="text-[#F59E0B]">[PENDING]</span>{" "}
-                Astronomy data ingestion
-              </p>
+
+              {systemStatus?.cosmicwatch.recent_runs.length ? (
+                systemStatus.cosmicwatch.recent_runs.map((run) => (
+                  <div
+                    key={run.id}
+                    className="border-b border-[#292929] pb-2 last:border-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={
+                        run.status === "SUCCESS"
+                          ? "text-[#4ADE80]"
+                          : run.status === "FAILED"
+                            ? "text-[#F87171]"
+                            : "text-[#F59E0B]"}>[{run.status}]</span>
+                      <span className="text-[#AAAAAA]">
+                        {run.pipeline}
+                      </span>
+                      <span className="text-[#777777]">
+                        {formatTimestamp(run.started_at)}
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-[#777777]">
+                      Fetched: {run.records_fetched}
+                      {" / "}
+                      Rows affected: {run.rows_affected}
+                    </p>
+
+                    {run.error_message && (
+                      <p className="mt-1 break-words text-[#F87171]">
+                        {run.error_message}
+                      </p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-[#777777]">
+                  No ingestion history available.
+                </p>
+              )}
             </div>
           </section>
         </div>

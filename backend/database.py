@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+from datetime import datetime, timezone
 
 DB_PATH = Path(__file__).resolve().parent / "data" / "astra.db"
 
@@ -33,6 +34,25 @@ def init_database():
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_approach_date
             ON asteroid_approaches (approach_date)
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ingestion_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pipeline TEXT NOT NULL,
+                status TEXT NOT NULL 
+                    CHECK (status IN ('RUNNING', 'SUCCESS', 'FAILED')),
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                records_fetched INTEGER NOT NULL DEFAULT 0,
+                rows_affected INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                CHECK (
+                    (status = 'RUNNING' AND finished_at IS NULL)
+                    OR
+                    (status != 'RUNNING' AND finished_at IS NOT NULL)
+                )
+            )
         """)
 
 
@@ -79,29 +99,6 @@ def save_asteroids(records: list[dict]) -> int:
         return conn.total_changes - before
 
 
-def get_asteroids(
-    limit: int = 100,
-    hazardous_only: bool = False,
-) -> list[dict]:
-    init_database()
-
-    query = """
-        SELECT *
-        FROM asteroid_approaches
-        WHERE (? = 0 OR hazardous = 1)
-        ORDER BY approach_date DESC, approach_datetime DESC
-        LIMIT ?
-    """
-
-    with get_connection() as conn:
-        rows = conn.execute(
-            query,
-            (int(hazardous_only), limit),
-        ).fetchall()
-
-    return [dict(row) for row in rows]
-
-
 def get_stats() -> dict:
     init_database()
 
@@ -126,7 +123,7 @@ def get_asteroids(
     sort_by: str = "approach_datetime",
     sort_order: str = "desc",
 ) -> list[dict]:
-    init_database
+    init_database()
 
     allowed_columns = {
         "approach_datetime",
@@ -173,5 +170,82 @@ def get_asteroids(
 
     with get_connection() as conn:
         rows = conn.execute(query, params).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def start_ingestion(pipeline: str) -> int:
+    init_database()
+
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO ingestion_runs
+                (pipeline, status, started_at)
+            VALUES (?, 'RUNNING', ?)
+            """,
+            (pipeline, utc_now()),
+        )
+        return cursor.lastrowid
+
+
+def finish_ingestion(
+    run_id: int,
+    status: str,
+    records_fetched: int = 0,
+    rows_affected: int = 0,
+    error_message: str | None = None,
+) -> None:
+    if status not in {"SUCCESS", "FAILED"}:
+        raise ValueError("Invalid final ingestion status")
+
+    init_database()
+
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE ingestion_runs
+            SET status = ?,
+                finished_at = ?,
+                records_fetched = ?,
+                rows_affected = ?,
+                error_message = ?
+            WHERE id = ? AND status = 'RUNNING'
+            """,
+            (
+                status,
+                utc_now(),
+                records_fetched,
+                rows_affected,
+                error_message,
+                run_id,
+            ),
+        )
+
+        if cursor.rowcount != 1:
+            raise ValueError("Ingestion run not found or already finished")
+
+
+def get_recent_runs(
+    pipeline: str = "cosmicwatch",
+    limit: int = 10,
+) -> list[dict]:
+    init_database()
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM ingestion_runs
+            WHERE pipeline = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (pipeline, limit),
+        ).fetchall()
 
     return [dict(row) for row in rows]

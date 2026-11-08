@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from fastapi import Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import HTTPException
+from system_monitor import get_system_status
 from database import get_asteroids, get_stats
 from datetime import date
+import logging
 
 app = FastAPI(
     title="ASTRA API",
@@ -87,3 +90,15 @@ def list_asteroids(
 @app.get("/api/cosmicwatch/stats")
 def cosmicwatch_stats():
     return get_stats()
+
+logger = logging.getLogger(__name__)
+
+@app.get("/api/system/status")
+def system_status():
+    try:
+        return get_system_status()
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="System monitoring unavailable",
+        )

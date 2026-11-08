@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi import Query
 from fastapi.middleware.cors import CORSMiddleware
 from database import get_asteroids, get_stats
+from datetime import date
 
 app = FastAPI(
     title="ASTRA API",
@@ -47,12 +48,37 @@ def get_modules():
 def list_asteroids(
     limit: int = Query(default=100, ge=1, le=500),
     hazardous_only: bool = False,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    search: str = Query(default="", max_length=100),
+    sort_by: str = "approach_datetime",
+    sort_order: str = "desc",
 ):
-    records = get_asteroids(
-        limit=limit,
-        hazardous_only=hazardous_only
-    )
+    if start_date and end_date and start_date > end_date:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=422,
+            detail="start_date must not exceed end_date",
+        )
 
+    from fastapi import HTTPException
+
+    try:
+        records = get_asteroids(
+            limit=limit,
+            hazardous_only=hazardous_only,
+            start_date=start_date.isoformat() if start_date else None,
+            end_date=end_date.isoformat() if end_date else None,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+    
     return {
         "count": len(records),
         "data": records,

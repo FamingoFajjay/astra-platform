@@ -116,3 +116,62 @@ def get_stats() -> dict:
         """).fetchone()
 
     return dict(row)
+
+def get_asteroids(
+    limit: int = 500,
+    hazardous_only: bool = False,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    search: str = "",
+    sort_by: str = "approach_datetime",
+    sort_order: str = "desc",
+) -> list[dict]:
+    init_database
+
+    allowed_columns = {
+        "approach_datetime",
+        "miss_distance_km",
+        "velocity_kmh",
+        "diameter_max_m",
+        "name",
+    }
+
+    if sort_by not in allowed_columns:
+        raise ValueError("Invalid sort column")
+
+    if sort_order not in {"asc", "desc"}:
+        raise ValueError("Invalid sort order")
+
+    conditions = []
+    params = []
+
+    if hazardous_only:
+        conditions.append("hazardous = 1")
+
+    if start_date:
+        conditions.append("approach_date >= ?")
+        params.append(start_date)
+
+    if end_date:
+        conditions.append("approach_date <= ?")
+        params.append(end_date)
+
+    if search.strip():
+        conditions.append("(LOWER(name) LIKE ? OR asteroid_id LIKE ?)")
+        term = f"%{search.strip().lower()}%"
+        params.extend([term, term])
+
+    where_clause = ("WHERE " + " AND ".join(conditions) if conditions else "")
+    query = f"""
+        SELECT *
+        FROM asteroid_approaches
+        {where_clause}
+        ORDER BY {sort_by} {sort_order.upper()}, asteroid_id ASC
+        LIMIT ?
+    """
+    params.append(limit)
+
+    with get_connection() as conn:
+        rows = conn.execute(query, params).fetchall()
+
+    return [dict(row) for row in rows]

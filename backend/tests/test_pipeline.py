@@ -106,3 +106,75 @@ def test_hazardous_filter(tmp_path, monkeypatch):
 
     assert len(filtered) == 1
     assert filtered[0]["asteroid_id"] == "67890"
+
+
+def test_search_and_sort(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        database,
+        "DB_PATH",
+        tmp_path / "test_search.db",
+    )
+
+    first = {
+        **sample_record(),
+        "asteroid_id": "100",
+        "name": "Asteroid Alpha",
+        "miss_distance_km": 5000000.0,
+    }
+
+    second = {
+        **sample_record(),
+        "asteroid_id": "200",
+        "name": "Asteroid Beta",
+        "miss_distance_km": 1000000.0,
+    }
+
+    database.save_asteroids([first, second])
+
+    searched = database.get_asteroids(search="alpha")
+
+    assert len(searched) == 1
+    assert searched[0]["asteroid_id"] == "100"
+
+    sorted_rows = database.get_asteroids(
+        sort_by="miss_distance_km",
+        sort_order="asc",
+    )
+
+    assert sorted_rows[0]["asteroid_id"] == "200"
+
+
+def test_date_filter(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        database,
+        "DB_PATH",
+        tmp_path / "test_dates.db",
+    )
+
+    first = sample_record()
+
+    second = {
+        **sample_record(),
+        "asteroid_id": "999",
+        "approach_date": "2026-11-10",
+        "approach_datetime": "2026-Nov-10 12:00",
+    }
+
+    database.save_asteroids([first, second])
+
+    rows = database.get_asteroids(
+        start_date="2026-11-09",
+        end_date="2026-11-11",
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["asteroid_id"] == "999"
+
+
+def test_invalid_sort_column():
+    import pytest
+
+    with pytest.raises(ValueError):
+        database.get_asteroids(
+            sort_by="DROP TABLE asteroid_approaches"
+        )

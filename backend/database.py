@@ -55,6 +55,28 @@ def init_database():
             )
         """)
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS solar_events (
+                event_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL
+                    CHECK (event_type IN ('FLR', 'GST')),
+                start_time TEXT NOT NULL,
+                peak_time TEXT,
+                end_time TEXT,
+                classification TEXT,
+                source_location TEXT,
+                active_region TEXT,
+                kp_max REAL,
+                source_url TEXT
+            )
+        """)
+
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_solar_events_time
+            ON solar_events (start_time)
+        """)
+
+
 
 def save_asteroids(records: list[dict]) -> int:
     init_database()
@@ -249,3 +271,73 @@ def get_recent_runs(
         ).fetchall()
 
     return [dict(row) for row in rows]
+
+
+def save_solar_events(records: list[dict]) -> int:
+    init_database()
+
+    with get_connection() as conn:
+        before = conn.total_changes
+
+        conn.executemany("""
+            INSERT INTO solar_events (
+                event_id, event_type, start_time,
+                peak_time, end_time, classification,
+                source_location, active_region,
+                kp_max, source_url
+            )
+            VALUES (
+                :event_id, :event_type, :start_time,
+                :peak_time, :end_time, :classification,
+                :source_location, :active_region,
+                :kp_max, :source_url
+            )
+            ON CONFLICT(event_id) DO UPDATE SET
+                event_type = excluded.event_type,
+                start_time = excluded.start_time,
+                peak_time = excluded.peak_time,
+                end_time = excluded.end_time,
+                classification = excluded.classification,
+                source_location = excluded.source_location,
+                active_region = excluded.active_region,
+                kp_max = excluded.kp_max,
+                source_url = excluded.source_url
+        """, records)
+
+        return conn.total_changes - before
+
+
+def get_solar_events(
+    event_type: str | None = None,
+    limit: int = 200,
+) -> list[dict]:
+    init_database()
+
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT *
+            FROM solar_events
+            WHERE (? IS NULL OR event_type = ?)
+            ORDER BY start_time DESC, event_id DESC
+            LIMIT ?
+        """, (event_type, event_type, limit)).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_solar_stats() -> dict:
+    init_database()
+
+    with get_connection() as conn:
+        row = conn.execute("""
+            SELECT
+                COUNT(*) AS total_events,
+                COALESCE(SUM(event_type = 'FLR'), 0)
+                    AS solar_flares,
+                COALESCE(SUM(event_type = 'GST'), 0)
+                    AS geomagnetic_storms,
+                MAX(start_time) AS latest_event_time
+            FROM solar_events
+        """).fetchone()
+
+    return dict(row)

@@ -15,6 +15,7 @@ import {
 import CosmicWatch from "./CosmicWatch";
 import SolarPulse from "./SolarPulse";
 import ExoAtlas from "./ExoAtlas";
+import AstroAlert from "./AstroAlert";
 
 type Module = {
   id: string;
@@ -351,6 +352,10 @@ function App() {
               <div className="min-h-0 flex-1 overflow-hidden p-3">
                 <ExoAtlas />
               </div>
+            ) : selected?.id === "astroalert" ? (
+              <div className="min-h-0 flex-1 overflow-hidden p-3">
+                <AstroAlert />
+              </div>
             ) : selected ? (
               <div className="flex flex-1 flex-col p-5">
                 <div className="flex items-center gap-3">
@@ -404,13 +409,13 @@ function App() {
         </div>
 
         {/* LOWER PANELS */}
-        <div className="mt-3 grid gap-3 lg:grid-cols-2">
-          <section className="min-h-0 self-start overflow-hidden border border-[#303030] bg-[#111111]">
+        <div className="mt-3 grid items-stretch gap-3 lg:grid-cols-2">
+          <section className="flex h-[230px] min-h-0 flex-col overflow-hidden border border-[#303030] bg-[#111111]">
             <div className="flex items-center justify-between border-b border-[#303030] px-4 py-3">
               <span className="font-mono text-[11px]">DATA PIPELINE</span>
               <Database size={14} color="#777777" />
             </div>
-            <div className="p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {MODULES.map((module) => (
                 <div
                   key={module.id}
@@ -459,8 +464,8 @@ function App() {
             </div>
           </section>
 
-          <section className="border border-[#303030] bg-[#111111]">
-            <div className="flex items-center justify-between border-b border-[#303030] px-4 py-3">
+          <section className="flex h-[230px] min-h-0 flex-col overflow-hidden border border-[#303030] bg-[#111111]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#303030] px-4 py-3">
               <span className="font-mono text-[11px]">SYSTEM LOG</span>
               <div className="flex items-center gap-2">
                 <select
@@ -469,7 +474,7 @@ function App() {
                     setLogFilter(e.target.value);
                     logContainerRef.current?.scrollTo({ top: 0 });
                   }}                  
-                  className="border border-[#383838] bg-[#191919] px-2 py-1 font-mono text-[10px] text-[#CCCCCC] outline-none"
+                  className="astra-control h-[28px] min-h-[28px] font-mono text-[10px]"
                 >
                   <option value="ALL">ALL</option>
                   <option value="SUCCESS">SUCCESS</option>
@@ -479,7 +484,7 @@ function App() {
                 <Activity size={14} color="#777777" />
               </div>
             </div>
-            <div ref={logContainerRef} className="max-h-[210px] space-y-3 overflow-y-auto p-4 font-mono text-[11px]">
+            <div ref={logContainerRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 font-mono text-[11px]">
               <p className="text-[#888888]">
                 <span className={apiOnline ? "text-[#4ADE80]" : "text-[#F87171]"}>
                   {apiOnline ? "[OK]" : "[ERROR]"}

@@ -31,10 +31,7 @@ type Stats = {
   discovery_methods: { name: string; count: number }[];
 };
 
-const inputClass =
-  "min-w-0 border border-[#383838] bg-[#191919] " +
-  "px-2 py-2 font-mono text-[11px] text-[#E5E5E5] " +
-  "outline-none focus:border-[#A78BFA]";
+const inputClass = "astra-control w-full min-w-0 font-mono focus:border-[#A78BFA]";
 
 function formatNumber(value: number | null, digits = 2) {
   return value == null
@@ -305,13 +302,17 @@ export default function ExoAtlas() {
                       tick={{ fill: "#AAAAAA", fontSize: 9 }}
                     />
                     <Tooltip
-                      contentStyle={{
-                        background: "#1A1A1A",
-                        border: "1px solid #383838",
-                        borderRadius: 0,
-                        padding: "5px 8px",
-                        fontSize: 10,
-                      }}
+                        cursor={{
+                            fill: "#FFFFFF",
+                            fillOpacity: 0.035,
+                        }}
+                        contentStyle={{
+                            background: "#1A1A1A",
+                            border: "1px solid #383838",
+                            borderRadius: 0,
+                            padding: "5px 8px",
+                            fontSize: 10,
+                        }}
                     />
                     <Bar dataKey="count" fill="#A78BFA" name="Planets" />
                   </BarChart>
@@ -333,13 +334,13 @@ export default function ExoAtlas() {
           <div className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-4">
             <label className="flex flex-col gap-1">
               <span className="font-mono text-[9px] text-[#888888]">SEARCH</span>
-              <div className="flex items-center gap-2 border border-[#383838] bg-[#191919] px-2">
+              <div className="astra-control flex w-full min-w-0 items-center gap-2 px-2">
                 <Search size={13} color="#777777" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Planet or host star"
-                  className="w-full min-w-0 bg-transparent py-2 text-xs outline-none"
+                  className="h-full w-full min-w-0 flex-1 bg-transparent text-xs outline-none"
                 />
               </div>
             </label>
@@ -367,7 +368,7 @@ export default function ExoAtlas() {
                 value={yearMin}
                 onChange={(e) => setYearMin(e.target.value)}
                 placeholder="e.g. 2010"
-                className={inputClass}
+                className={`${inputClass} astra-number-input`}
               />
             </label>
 
@@ -380,7 +381,7 @@ export default function ExoAtlas() {
                 value={yearMax}
                 onChange={(e) => setYearMax(e.target.value)}
                 placeholder="e.g. 2026"
-                className={inputClass}
+                className={`${inputClass} astra-number-input`}
               />
             </label>
           </div>

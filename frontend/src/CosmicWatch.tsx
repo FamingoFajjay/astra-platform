@@ -37,10 +37,7 @@ type SortField =
   | "diameter_max_m"
   | "name";
 
-const inputStyle =
-  "min-w-0 border border-[#383838] bg-[#191919] px-2 py-2 " +
-  "font-mono text-[11px] text-[#E5E5E5] outline-none " +
-  "focus:border-[#60A5FA]";
+const inputStyle = "astra-control w-full min-w-0 font-mono focus:border-[#60A5FA]";
 
 function formatNumber(value: number, digits = 0) {
   return value.toLocaleString("en-US", {
@@ -439,7 +436,7 @@ export default function CosmicWatch() {
                 <span className="font-mono text-[9px] text-[#888888]">
                   SEARCH OBJECT
                 </span>
-                <div className="flex items-center gap-2 border border-[#383838] bg-[#191919] px-2">
+                <div className="astra-control flex w-full min-w-0 items-center gap-2 px-2">
                   <Search size={13} color="#777777" />
                   <input
                     value={search}
@@ -448,7 +445,7 @@ export default function CosmicWatch() {
                       setLoading(true);
                     }}
                     placeholder="Name or NASA ID"
-                    className="w-full min-w-0 bg-transparent py-2 text-xs outline-none"
+                    className="h-full w-full min-w-0 flex-1 bg-transparent text-xs outline-none"
                   />
                 </div>
               </label>
@@ -513,7 +510,7 @@ export default function CosmicWatch() {
                     setHazardousOnly(e.target.checked);
                     setLoading(true);
                   }}
-                  className="accent-[#F59E0B]"
+                  className="astra-checkbox astra-checkbox-amber"
                 />
                 PHA ONLY
               </label>
@@ -548,7 +545,7 @@ export default function CosmicWatch() {
               <button
                 onClick={() => exportCSV(asteroids)}
                 disabled={loading || !!error || invalidDates || !asteroids.length}
-                className="ml-auto flex items-center gap-2 border border-[#383838] bg-[#202020] px-3 py-2 font-mono text-[10px] hover:bg-[#303030] disabled:opacity-40"
+                className="astra-control ml-auto font-mono text-[10px]"
               >
                 <Download size={13} color="#60A5FA" />
                 EXPORT CSV

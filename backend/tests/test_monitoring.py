@@ -55,6 +55,7 @@ def test_failed_ingestion(tmp_path, monkeypatch):
     assert runs[0]["error_message"] == "Simulated network failure"
 
 
+
 def test_system_status(tmp_path, monkeypatch):
     monkeypatch.setattr(
         database,
@@ -63,6 +64,7 @@ def test_system_status(tmp_path, monkeypatch):
     )
 
     run_id = database.start_ingestion("cosmicwatch")
+
     database.finish_ingestion(
         run_id,
         status="SUCCESS",
@@ -72,6 +74,21 @@ def test_system_status(tmp_path, monkeypatch):
     status = get_system_status()
 
     assert status["database"]["status"] == "CONNECTED"
-    assert status["cosmicwatch"]["status"] == "SUCCESS"
-    assert status["cosmicwatch"]["last_success_at"] is not None
-    assert len(status["cosmicwatch"]["recent_runs"]) == 1
+
+    cosmicwatch = status["pipelines"]["cosmicwatch"]
+
+    assert cosmicwatch["status"] == "SUCCESS"
+    assert cosmicwatch["last_success_at"] is not None
+    assert cosmicwatch["age_hours"] is not None
+
+    assert "solarpulse" in status["pipelines"]
+    assert "exoatlas" in status["pipelines"]
+    assert "astroalert" in status["pipelines"]
+
+    assert isinstance(status["recent_runs"], list)
+
+    assert any(
+        run["pipeline"] == "cosmicwatch"
+        and run["status"] == "SUCCESS"
+        for run in status["recent_runs"]
+    )

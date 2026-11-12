@@ -10,6 +10,7 @@ PIPELINES = {
     "cosmicwatch": "asteroid_approaches",
     "solarpulse": "solar_events",
     "exoatlas": "exoplanets",
+    "astroalert": "astro_circulars",
 }
 
 

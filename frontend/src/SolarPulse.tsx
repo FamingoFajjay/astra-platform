@@ -56,7 +56,7 @@ type EventResponse = { count: number; data: SolarEvent[] };
 type Filter = "ALL" | "FLR" | "GST";
 const API = "http://127.0.0.1:8000";
 const panel = "border border-[#303030] bg-[#151515]";
-const control = "border border-[#383838] bg-[#191919] px-2 py-2 font-mono text-[11px] text-[#E5E5E5] outline-none focus:border-[#F59E0B]";
+const control = "astra-control min-w-[155px] font-mono focus:border-[#F59E0B]";
 
 function displayTime(value: string | null) {
   if (!value) return "—";
@@ -189,9 +189,9 @@ export default function SolarPulse() {
           <div className="flex flex-wrap items-end gap-2 p-3">
             <label className="flex min-w-[160px] flex-1 flex-col gap-1">
               <span className="font-mono text-[9px] text-[#888888]">SEARCH EVENT</span>
-              <span className="flex items-center gap-2 border border-[#383838] bg-[#191919] px-2">
+              <span className="astra-control flex w-full min-w-0 items-center gap-2 px-2">
                 <Search size={13} color="#888888" />
-                <input className="w-full bg-transparent py-2 text-xs outline-none" value={search} onChange={e => setSearch(e.target.value)} placeholder="ID, class, region" />
+                <input className="h-full w-full min-w-0 flex-1 bg-transparent text-xs outline-none" value={search} onChange={e => setSearch(e.target.value)} placeholder="ID, class, region" />
               </span>
             </label>
             <label className="flex flex-col gap-1">
@@ -202,7 +202,7 @@ export default function SolarPulse() {
                 <option value="GST">GEOMAGNETIC STORMS</option>
               </select>
             </label>
-            <button className="flex items-center gap-1 border border-[#383838] px-3 py-2 font-mono text-[10px] hover:bg-[#252525]" onClick={() => setRefreshKey(k => k + 1)}><RefreshCw size={12} /> REFRESH</button>
+            <button className="astra-control font-mono text-[10px]" onClick={() => setRefreshKey(k => k + 1)}><RefreshCw size={12} /> REFRESH</button>
             <button disabled={loading || !!error || visible.length === 0} className="flex items-center gap-1 border border-[#383838] px-3 py-2 font-mono text-[10px] hover:bg-[#252525] disabled:opacity-40" onClick={() => exportCSV(visible)}><Download size={12} /> CSV</button>
           </div>
         </section>

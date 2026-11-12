@@ -31,3 +31,114 @@ button:focus-visible {
   background: #404040;
   color: #ffffff;
 }
+
+
+/* ASTRA / UNIFIED FORM CONTROLS */
+
+.astra-control {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid #383838;
+  border-radius: 0;
+  background: #191919;
+  color: #e5e5e5;
+  font-size: 11px;
+  line-height: 1.2;
+  outline: none;
+}
+
+.astra-control:focus-visible {
+  border-color: #777777;
+}
+
+input.astra-control,
+select.astra-control {
+  padding: 0 10px;
+}
+
+button.astra-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+button.astra-control:hover {
+  background: #252525;
+}
+
+button.astra-control:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+select.astra-control {
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23AAAAAA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+}
+
+input[type="number"].astra-control {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"].astra-control::-webkit-inner-spin-button,
+input[type="number"].astra-control::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.astra-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  margin: 0;
+  border: 1px solid #606060;
+  border-radius: 0;
+  background: #191919;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  vertical-align: middle;
+}
+
+.astra-checkbox::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--check-color, #60a5fa);
+  transform: scale(0);
+  transition: transform 120ms ease;
+}
+
+.astra-checkbox:checked {
+  border-color: var(--check-color, #60a5fa);
+  background: #242424;
+}
+
+.astra-checkbox:checked::after { transform: scale(1); }
+.astra-checkbox:hover { border-color: #a3a3a3; }
+.astra-checkbox:focus-visible {
+  outline: 2px solid var(--check-color, #60a5fa);
+  outline-offset: 2px;
+}
+
+/* Remove bright browser spinner; keyboard arrow keys still work. */
+.astra-number-input::-webkit-inner-spin-button,
+.astra-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.astra-number-input { appearance: textfield; -moz-appearance: textfield; }
+
+.astra-checkbox-amber { --check-color: #f59e0b; }
+.astra-checkbox-rose { --check-color: #fb7185; }

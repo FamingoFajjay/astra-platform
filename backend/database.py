@@ -100,6 +100,31 @@ def init_database():
             ON exoplanets (discovery_year)
         """)
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS astro_circulars (
+                circular_id INTEGER PRIMARY KEY,
+                subject TEXT NOT NULL,
+                event_id TEXT,
+                event_type TEXT NOT NULL,
+                published_at TEXT NOT NULL,
+                submitter TEXT,
+                source_url TEXT NOT NULL,
+                alert_match INTEGER NOT NULL DEFAULT 0,
+                priority TEXT NOT NULL DEFAULT 'NONE',
+                rule_label TEXT
+            )
+        """)
+
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_circulars_time
+            ON astro_circulars (published_at)
+        """)
+
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_circulars_type
+            ON astro_circulars (event_type)
+        """)
+
 def save_asteroids(records: list[dict]) -> int:
     init_database()
 
@@ -480,4 +505,115 @@ def get_exoplanet_stats() -> dict:
         """).fetchall()
 
     stats["discovery_methods"] = [dict(row) for row in methods]
+    return stats
+
+
+def save_circulars(records: list[dict]) -> int:
+    init_database()
+
+    with get_connection() as conn:
+        before = conn.total_changes
+
+        conn.executemany("""
+            INSERT INTO astro_circulars (
+                circular_id, subject, event_id,
+                event_type, published_at, submitter,
+                source_url, alert_match, priority,
+                rule_label
+            )
+            VALUES (
+                :circular_id, :subject, :event_id,
+                :event_type, :published_at, :submitter,
+                :source_url, :alert_match, :priority,
+                :rule_label
+            )
+            ON CONFLICT(circular_id) DO UPDATE SET
+                subject = excluded.subject,
+                event_id = excluded.event_id,
+                event_type = excluded.event_type,
+                published_at = excluded.published_at,
+                submitter = excluded.submitter,
+                source_url = excluded.source_url,
+                alert_match = excluded.alert_match,
+                priority = excluded.priority,
+                rule_label = excluded.rule_label
+        """, records)
+
+        return conn.total_changes - before
+
+
+def get_circulars(
+    search: str = "",
+    event_type: str = "",
+    alerts_only: bool = False,
+    limit: int = 200,
+) -> list[dict]:
+    init_database()
+
+    conditions = []
+    params = []
+
+    if search.strip():
+        conditions.append(
+            "(LOWER(subject) LIKE ? OR LOWER(event_id) LIKE ?)"
+        )
+        term = f"%{search.strip().lower()}%"
+        params.extend([term, term])
+
+    if event_type:
+        conditions.append("event_type = ?")
+        params.append(event_type)
+
+    if alerts_only:
+        conditions.append("alert_match = 1")
+
+    where_sql = (
+        "WHERE " + " AND ".join(conditions)
+        if conditions else ""
+    )
+
+    query = f"""
+        SELECT *
+        FROM astro_circulars
+        {where_sql}
+        ORDER BY published_at DESC, circular_id DESC
+        LIMIT ?
+    """
+
+    params.append(limit)
+
+    with get_connection() as conn:
+        rows = conn.execute(query, params).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_circular_stats() -> dict:
+    init_database()
+
+    with get_connection() as conn:
+        row = conn.execute("""
+            SELECT
+                COUNT(*) AS total_circulars,
+                COALESCE(SUM(alert_match), 0)
+                    AS alert_matches,
+                COALESCE(SUM(event_type = 'GRB'), 0)
+                    AS grb_reports,
+                COUNT(DISTINCT event_type)
+                    AS categories,
+                MAX(published_at)
+                    AS latest_published_at
+            FROM astro_circulars
+        """).fetchone()
+
+        types = conn.execute("""
+            SELECT event_type AS name, COUNT(*) AS count
+            FROM astro_circulars
+            GROUP BY event_type
+            ORDER BY count DESC
+        """).fetchall()
+
+    stats = dict(row)
+    stats["event_types"] = [dict(item) for item in types]
+
     return stats

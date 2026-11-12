@@ -92,7 +92,7 @@ def run_ingestion():
             )
         except Exception:
             print("[ASTRA] WARNING: Could not record failure")
-        print(f"[ASTRA] FAILED: {exc}", flush=True,)
+        print(f"[ASTRA] FAILED: {safe_error_message(exc)}", flush=True,)
         raise
 
 

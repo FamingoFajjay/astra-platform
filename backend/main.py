@@ -6,6 +6,7 @@ from system_monitor import get_system_status
 from database import get_asteroids, get_stats
 from database import get_solar_events, get_solar_stats
 from database import get_exoplanets, get_exoplanet_stats
+from database import get_circulars, get_circular_stats
 from datetime import date
 import logging
 
@@ -160,3 +161,32 @@ def list_exoplanets(
 @app.get("/api/exoatlas/stats")
 def exoatlas_stats():
     return get_exoplanet_stats()
+
+
+@app.get("/api/astroalert/circulars")
+def list_circulars(
+    search: str = Query(default="", max_length=100),
+    event_type: str = Query(
+        default="",
+        pattern="^(|GRB|NEUTRINO|SUPERNOVA|X_RAY|OTHER)$",
+    ),
+    alerts_only: bool = False,
+    limit: int = Query(default=200, ge=1, le=500),
+):
+    records = get_circulars(
+        search=search,
+        event_type=event_type,
+        alerts_only=alerts_only,
+        limit=limit,
+    )
+
+    return {
+        "count": len(records),
+        "data": records,
+    }
+
+
+@app.get("/api/astroalert/stats")
+def astroalert_stats():
+    return get_circular_stats()
+

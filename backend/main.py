@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import HTTPException
 from system_monitor import get_system_status
 from database import get_asteroids, get_stats
+from database import get_solar_events, get_solar_stats
+from database import get_exoplanets, get_exoplanet_stats
 from datetime import date
 import logging
 
@@ -98,7 +100,63 @@ def system_status():
     try:
         return get_system_status()
     except Exception:
+        logger.exception("ASTRA system monitoring failed")
         raise HTTPException(
             status_code=503,
             detail="System monitoring unavailable",
         )
+
+@app.get("/api/solarpulse/events")
+def list_solar_events(
+    event_type: str | None = Query(
+        default=None,
+        pattern="^(FLR|GST)$",
+    ),
+    limit: int = Query(default=200, ge=1, le=500),
+):
+    records = get_solar_events(
+        event_type=event_type,
+        limit=limit,
+    )
+    return {"count": len(records), "data": records}
+
+@app.get("/api/solarpulse/stats")
+def solar_stats():
+    return get_solar_stats()
+
+@app.get("/api/exoatlas/planets")
+def list_exoplanets(
+    search: str = Query(default="", max_length=100),
+    method: str = Query(default="", max_length=100),
+    year_min: int | None = Query(default=None, ge=1980, le=2200),
+    year_max: int | None = Query(default=None, ge=1980, le=2200),
+    limit: int = Query(default=500, ge=1, le=500),
+):
+    if (
+        year_min is not None
+        and year_max is not None
+        and year_min > year_max
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="year_min must not exceed year_max",
+        )
+
+    records = get_exoplanets(
+        search=search,
+        method=method,
+        year_min=year_min,
+        year_max=year_max,
+        limit=limit,
+    )
+
+    return {
+        "count": len(records),
+        "data": records,
+        "limit": limit,
+    }
+
+
+@app.get("/api/exoatlas/stats")
+def exoatlas_stats():
+    return get_exoplanet_stats()

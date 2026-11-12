@@ -77,6 +77,28 @@ def init_database():
         """)
 
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS exoplanets (
+                planet_name TEXT PRIMARY KEY,
+                hostname TEXT NOT NULL,
+                discovery_method TEXT,
+                discovery_year INTEGER,
+                radius_earth REAL,
+                orbital_period_days REAL,
+                mass_earth REAL,
+                distance_pc REAL
+            )
+        """)
+
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_exoplanet_method
+            ON exoplanets (discovery_method)
+        """)
+
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_exoplanet_year
+            ON exoplanets (discovery_year)
+        """)
 
 def save_asteroids(records: list[dict]) -> int:
     init_database()
@@ -341,3 +363,121 @@ def get_solar_stats() -> dict:
         """).fetchone()
 
     return dict(row)
+
+
+def save_exoplanets(records: list[dict]) -> int:
+    init_database()
+
+    with get_connection() as conn:
+        before = conn.total_changes
+
+        conn.executemany("""
+            INSERT INTO exoplanets (
+                planet_name,
+                hostname,
+                discovery_method,
+                discovery_year,
+                radius_earth,
+                orbital_period_days,
+                mass_earth,
+                distance_pc
+            )
+            VALUES (
+                :planet_name,
+                :hostname,
+                :discovery_method,
+                :discovery_year,
+                :radius_earth,
+                :orbital_period_days,
+                :mass_earth,
+                :distance_pc
+            )
+            ON CONFLICT(planet_name) DO UPDATE SET
+                hostname = excluded.hostname,
+                discovery_method = excluded.discovery_method,
+                discovery_year = excluded.discovery_year,
+                radius_earth = excluded.radius_earth,
+                orbital_period_days = excluded.orbital_period_days,
+                mass_earth = excluded.mass_earth,
+                distance_pc = excluded.distance_pc
+        """, records)
+
+        return conn.total_changes - before
+
+
+def get_exoplanets(
+    search: str = "",
+    method: str = "",
+    year_min: int | None = None,
+    year_max: int | None = None,
+    limit: int = 500,
+) -> list[dict]:
+    init_database()
+
+    conditions = []
+    params = []
+
+    if search.strip():
+        conditions.append(
+            "(LOWER(planet_name) LIKE ? OR LOWER(hostname) LIKE ?)"
+        )
+        term = f"%{search.strip().lower()}%"
+        params.extend([term, term])
+
+    if method:
+        conditions.append("discovery_method = ?")
+        params.append(method)
+
+    if year_min is not None:
+        conditions.append("discovery_year >= ?")
+        params.append(year_min)
+
+    if year_max is not None:
+        conditions.append("discovery_year <= ?")
+        params.append(year_max)
+
+    where_sql = (
+        "WHERE " + " AND ".join(conditions)
+        if conditions else ""
+    )
+
+    query = f"""
+        SELECT *
+        FROM exoplanets
+        {where_sql}
+        ORDER BY planet_name ASC
+        LIMIT ?
+    """
+
+    params.append(limit)
+
+    with get_connection() as conn:
+        rows = conn.execute(query, params).fetchall()
+
+    return [dict(row) for row in rows]
+
+def get_exoplanet_stats() -> dict:
+    init_database()
+
+    with get_connection() as conn:
+        stats = dict(conn.execute("""
+            SELECT
+                COUNT(*) AS total_planets,
+                COUNT(DISTINCT hostname) AS host_stars,
+                COUNT(DISTINCT discovery_method) AS methods,
+                MAX(discovery_year) AS latest_year
+            FROM exoplanets
+        """).fetchone())
+
+        methods = conn.execute("""
+            SELECT
+                discovery_method AS name,
+                COUNT(*) AS count
+            FROM exoplanets
+            WHERE discovery_method IS NOT NULL
+            GROUP BY discovery_method
+            ORDER BY count DESC
+        """).fetchall()
+
+    stats["discovery_methods"] = [dict(row) for row in methods]
+    return stats

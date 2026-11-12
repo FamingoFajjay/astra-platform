@@ -7,7 +7,49 @@ from database import (
     save_asteroids,
     get_stats,
 )
+import requests
 
+
+def safe_error_message(exc: Exception) -> str:
+    """Describe failures without exposing URLs or API keys."""
+
+    if isinstance(exc, requests.exceptions.HTTPError):
+        response = exc.response
+
+        if response is not None:
+            status = response.status_code
+
+            if status == 404:
+                return (
+                    "HTTP 404: DONKI endpoint not found. "
+                    "Check the API URL."
+                )
+
+            if status == 429:
+                return (
+                    "HTTP 429: API rate limit exceeded."
+                )
+
+            if status >= 500:
+                return (
+                    f"HTTP {status}: NASA DONKI service "
+                    "temporarily unavailable."
+                )
+
+            return f"HTTP {status}: DONKI request failed."
+
+        return "HTTPError: Request failed without response."
+
+    if isinstance(exc, requests.exceptions.Timeout):
+        return "Timeout: NASA DONKI did not respond in time."
+
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        return "ConnectionError: Could not connect to DONKI."
+
+    if isinstance(exc, requests.exceptions.JSONDecodeError):
+        return "JSONDecodeError: Invalid JSON from DONKI."
+
+    return f"{type(exc).__name__}: SolarPulse ingestion failed."
 
 def run_ingestion():
     run_id = start_ingestion("cosmicwatch")
@@ -46,11 +88,11 @@ def run_ingestion():
             finish_ingestion(
                 run_id=run_id,
                 status="FAILED",
-                error_message=str(exc)[:500],
+                error_message=safe_error_message(exc),
             )
         except Exception:
             print("[ASTRA] WARNING: Could not record failure")
-        print(f"[ASTRA] FAILED: {exc}")
+        print(f"[ASTRA] FAILED: {exc}", flush=True,)
         raise
 
 

@@ -4,76 +4,104 @@ from datetime import datetime, timezone
 from database import (
     get_connection,
     init_database,
-    get_recent_runs,
 )
+
+PIPELINES = {
+    "cosmicwatch": "asteroid_approaches",
+    "solarpulse": "solar_events",
+    "exoatlas": "exoplanets",
+}
 
 
 def get_system_status() -> dict:
     init_database()
 
     with get_connection() as conn:
-        conn.execute("SELECT 1").fetchone()
+        conn.execute("SELECT 1")
 
-        count = conn.execute(
-            "SELECT COUNT(*) FROM asteroid_approaches"
-        ).fetchone()[0]
+        pipelines = {}
 
-    runs = get_recent_runs("cosmicwatch", limit=10)
+        for name, table in PIPELINES.items():
+            record_count = conn.execute(
+                f"SELECT COUNT(*) FROM {table}"
+            ).fetchone()[0]
 
-    latest_success = next(
-        (run for run in runs if run["status"] == "SUCCESS"),
-        None,
-    )
+            latest = conn.execute(
+                """
+                SELECT *
+                FROM ingestion_runs
+                WHERE pipeline = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (name,),
+            ).fetchone()
 
-    # The latest successful run might be older than the
-    # last ten runs, so query it independently.
-    with get_connection() as conn:
-        row = conn.execute(
+            success = conn.execute(
+                """
+                SELECT finished_at
+                FROM ingestion_runs
+                WHERE pipeline = ?
+                    AND status = 'SUCCESS'
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (name,),
+            ).fetchone()
+
+            latest_success = (
+                success["finished_at"] 
+                if success 
+                else None
+            )
+
+            age_hours = None
+
+            if latest_success:
+                updated = datetime.fromisoformat(
+                    latest_success.replace("Z", "+00:00")
+                )
+
+                if updated.tzinfo is None:
+                    updated = updated.replace(tzinfo=timezone.utc)
+
+                age_hours = round(
+                    (
+                        datetime.now(timezone.utc) - updated
+                    ).total_seconds() / 3600,
+                    2,
+                )
+
+            pipelines[name] = {
+                "status": latest["status"] if latest else "NEVER_RUN",
+                "last_success_at": latest_success,
+                "age_hours": age_hours,
+                "records_stored": record_count,
+            }
+
+        rows = conn.execute(
             """
-            SELECT *
+            SELECT
+                id,
+                pipeline,
+                status,
+                started_at,
+                finished_at,
+                records_fetched,
+                rows_affected,
+                error_message
             FROM ingestion_runs
-            WHERE pipeline = 'cosmicwatch'
-              AND status = 'SUCCESS'
             ORDER BY id DESC
-            LIMIT 1
+            LIMIT 20
             """
-        ).fetchone()
+        ).fetchall()
 
-    if row:
-        latest_success = dict(row)
-
-    last_updated = (
-        latest_success["finished_at"]
-        if latest_success else None
-    )
-
-    age_hours = None
-
-    if last_updated:
-        updated = datetime.fromisoformat(last_updated)
-
-        age_hours = round(
-            (
-                datetime.now(timezone.utc) - updated
-            ).total_seconds() / 3600,
-            2,
-        )
-
-    latest_run = runs[0] if runs else None
+        recent_runs = [dict(row) for row in rows]
 
     return {
         "database": {
             "status": "CONNECTED",
-            "asteroid_records": count,
         },
-        "cosmicwatch": {
-            "status": (
-                latest_run["status"] if latest_run
-                else "NEVER_RUN"
-            ),
-            "last_success_at": last_updated,
-            "age_hours": age_hours,
-            "records_stored": count,
-            "recent_runs": runs,
-        },
+        "pipelines": pipelines,
+        "recent_runs": recent_runs,
     }

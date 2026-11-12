@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -13,6 +13,8 @@ import {
   WifiOff,
 } from "lucide-react";
 import CosmicWatch from "./CosmicWatch";
+import SolarPulse from "./SolarPulse";
+import ExoAtlas from "./ExoAtlas";
 
 type Module = {
   id: string;
@@ -31,19 +33,22 @@ type IngestionRun = {
   error_message: string | null;
 };
 
+
+type PipelineStatus = {
+  status: string;
+  last_success_at: string | null;
+  age_hours: number | null;
+  records_stored: number;
+};
+
 type SystemStatus = {
   database: {
     status: string;
-    asteroid_records: number;
   };
-  cosmicwatch: {
-    status: string;
-    last_success_at: string | null;
-    age_hours: number | null;
-    records_stored: number;
-    recent_runs: IngestionRun[];
-  };
+  pipelines: Record<string, PipelineStatus>;
+  recent_runs: IngestionRun[];
 };
+
 
 const MODULES = [
   {
@@ -95,6 +100,8 @@ function App() {
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [logFilter, setLogFilter] = useState("ALL");
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   async function loadData() {
     setLoading(true);
@@ -137,15 +144,20 @@ function App() {
     }
   }
 
-useEffect(() => {
-  const frame = requestAnimationFrame(() => {
-    void loadData();
-  });
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      void loadData();
+    });
 
-  return () => cancelAnimationFrame(frame);
-}, []);
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const selected = MODULES.find((m) => m.id === activeModule);
+
+  const filteredRuns = (systemStatus?.recent_runs ?? [])
+  .filter((run) =>
+    logFilter === "ALL" || run.status === logFilter
+  );
 
   return (
     <div className="min-h-screen bg-[#0B0B0B] text-[#E8E8E8]">
@@ -194,7 +206,10 @@ useEffect(() => {
             </h2>
           </div>
           <button
-            onClick={() => void loadData()}
+            onClick={() => {
+              logContainerRef.current?.scrollTo({ top: 0 });
+              void loadData();
+            }}
             disabled={loading}
             className="flex items-center gap-2 border border-[#383838] bg-[#1A1A1A] px-3 py-2 text-xs hover:bg-[#252525] disabled:opacity-50"
           >
@@ -220,19 +235,42 @@ useEffect(() => {
             },
             {
               label: "DATA INGESTION",
-              value: systemStatus?.cosmicwatch.status ?? "UNKNOWN",
-              color: systemStatus?.cosmicwatch.status === "SUCCESS"
-                ? "#4ADE80"
-                : systemStatus?.cosmicwatch.status === "FAILED"
-                  ? "#F87171"
-                  : "#F59E0B",
+              value: (() => {
+                if (!systemStatus) return "UNKNOWN";
+
+                const statuses = Object.values(
+                  systemStatus.pipelines
+                ).map((p) => p.status);
+
+                if (statuses.includes("FAILED")) return "ATTENTION";
+                if (statuses.includes("RUNNING")) return "RUNNING";
+                if (statuses.every((s) => s === "SUCCESS")) {
+                  return "SUCCESS";
+                }
+
+                return "PARTIAL";
+              })(),
+              color: (() => {
+                if (!systemStatus) return "#A3A3A3";
+
+                const statuses = Object.values(
+                  systemStatus.pipelines
+                ).map((p) => p.status);
+
+                return statuses.length > 0 &&
+                  statuses.every((s) => s === "SUCCESS")
+                  ? "#4ADE80"
+                  : "#F59E0B";
+              })(),
               Icon: Radio,
-            },                     
+            },
             {
-              label: "DATA INGESTION",
-              value: "NOT STARTED",
-              color: "#A3A3A3",
-              Icon: Radio,
+              label: "DATABASE",
+              value: systemStatus?.database.status ?? "UNKNOWN",
+              color: systemStatus?.database.status === "CONNECTED"
+                ? "#4ADE80"
+                : "#F87171",
+              Icon: Database,
             },
           ].map((item) => (
             <div key={item.label} className="bg-[#151515] p-4">
@@ -304,6 +342,14 @@ useEffect(() => {
             {selected?.id === "cosmicwatch" ? (
               <div className="min-h-0 flex-1 overflow-hidden p-3">
                 <CosmicWatch />
+              </div>
+            ) : selected?.id === "solarpulse" ? (
+              <div className="min-h-0 flex-1 overflow-hidden p-3">
+                <SolarPulse />
+              </div>
+            ) : selected?.id === "exoatlas" ? (
+              <div className="min-h-0 flex-1 overflow-hidden p-3">
+                <ExoAtlas />
               </div>
             ) : selected ? (
               <div className="flex flex-1 flex-col p-5">
@@ -378,13 +424,35 @@ useEffect(() => {
                     {module.name}
                   </span>
                   <span className="font-mono text-[10px] text-[#777777]">
-                    {module.id === "cosmicwatch"
-                      ? systemStatus?.cosmicwatch.last_success_at
-                        ? `UPDATED ${formatTimestamp(
-                            systemStatus.cosmicwatch.last_success_at
-                          )}`
-                        : "NO SUCCESSFUL RUN"
-                      : "NOT INITIALIZED"}
+                    {(() => {
+                      const pipeline = systemStatus?.pipelines[module.id];
+
+                      if (!pipeline) return "NOT INITIALIZED";
+
+                      if (pipeline.status === "FAILED") {
+                        return pipeline.last_success_at
+                          ? `FAILED / LAST SUCCESS ${formatTimestamp(pipeline.last_success_at)}`
+                          : "FAILED / NEVER UPDATED"
+                      }
+
+                      if (pipeline.status === "RUNNING") {
+                        return "RUNNING / NOT YET COMPLETED";
+                      }
+
+                      if (pipeline.last_success_at) {
+                        const age = pipeline.age_hours;
+
+                        const freshness =
+                          age !== null && age > 24
+                            ? "STALE"
+                            : "UPDATED";
+                        
+                        return `${freshness} ${formatTimestamp(pipeline.last_success_at)} 
+                          / ${pipeline.records_stored.toLocaleString()} RECORDS`;
+                      }
+
+                      return "NEVER UPDATED";
+                    })()}
                     </span>
                 </div>
               ))}
@@ -394,9 +462,24 @@ useEffect(() => {
           <section className="border border-[#303030] bg-[#111111]">
             <div className="flex items-center justify-between border-b border-[#303030] px-4 py-3">
               <span className="font-mono text-[11px]">SYSTEM LOG</span>
-              <Activity size={14} color="#777777" />
+              <div className="flex items-center gap-2">
+                <select
+                  value={logFilter}
+                  onChange={(e) => {
+                    setLogFilter(e.target.value);
+                    logContainerRef.current?.scrollTo({ top: 0 });
+                  }}                  
+                  className="border border-[#383838] bg-[#191919] px-2 py-1 font-mono text-[10px] text-[#CCCCCC] outline-none"
+                >
+                  <option value="ALL">ALL</option>
+                  <option value="SUCCESS">SUCCESS</option>
+                  <option value="FAILED">FAILED</option>
+                  <option value="RUNNING">RUNNING</option>
+                </select>
+                <Activity size={14} color="#777777" />
+              </div>
             </div>
-            <div className="max-h-[210px] space-y-3 overflow-y-auto p-4 font-mono text-[11px]">
+            <div ref={logContainerRef} className="max-h-[210px] space-y-3 overflow-y-auto p-4 font-mono text-[11px]">
               <p className="text-[#888888]">
                 <span className={apiOnline ? "text-[#4ADE80]" : "text-[#F87171]"}>
                   {apiOnline ? "[OK]" : "[ERROR]"}
@@ -404,8 +487,8 @@ useEffect(() => {
                 Backend API {apiOnline ? "connected" : "unavailable"}
               </p>
 
-              {systemStatus?.cosmicwatch.recent_runs.length ? (
-                systemStatus.cosmicwatch.recent_runs.map((run) => (
+              {filteredRuns.length ? (
+                filteredRuns.map((run) => (                  
                   <div
                     key={run.id}
                     className="border-b border-[#292929] pb-2 last:border-0">
@@ -429,11 +512,16 @@ useEffect(() => {
                       {" / "}
                       Rows affected: {run.rows_affected}
                     </p>
-
                     {run.error_message && (
-                      <p className="mt-1 break-words text-[#F87171]">
-                        {run.error_message}
-                      </p>
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-[10px] text-[#888888] hover:text-[#CCCCCC]">
+                          VIEW ERROR DETAILS
+                        </summary>
+
+                        <p className="mt-2 break-words text-[10px] text-[#F87171]">
+                          {run.error_message}
+                        </p>
+                      </details>
                     )}
                   </div>
                 ))

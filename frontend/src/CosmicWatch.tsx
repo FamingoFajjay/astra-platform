@@ -1,3 +1,4 @@
+// ติดตามดาวเคราะห์น้อยที่เข้าใกล้โลก
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
   ZAxis,
 } from "recharts";
 import { Download, Search, RotateCcw } from "lucide-react";
+import ChartTooltip from "./components/ChartTooltip";
 
 const API = "http://127.0.0.1:8000";
 
@@ -44,6 +46,64 @@ function formatNumber(value: number, digits = 0) {
   return value.toLocaleString("en-US", {
     maximumFractionDigits: digits,
   });
+}
+
+type DailyTooltipProps = {
+  active?: boolean;
+  label?: string;
+  payload?: Array<{
+    value?: number;
+  }>;
+};
+
+function DailyTooltip({
+  active,
+  label,
+  payload,
+}: DailyTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <ChartTooltip title={label ?? "Approach date"}>
+      <p className="text-[#60A5FA]">
+        Approaches: {payload[0].value ?? 0}
+      </p>
+    </ChartTooltip>
+  );
+}
+
+type AsteroidPoint = {
+  x: number;
+  y: number;
+  name: string;
+};
+
+type AsteroidTooltipProps = {
+  active?: boolean;
+  payload?: Array<{
+    payload: AsteroidPoint;
+  }>;
+};
+
+function AsteroidTooltip({
+  active,
+  payload,
+}: AsteroidTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  const asteroid = payload[0].payload;
+
+  return (
+    <ChartTooltip title={asteroid.name}>
+      <p className="text-[#60A5FA]">
+        Distance: {formatNumber(asteroid.x, 2)} million km
+      </p>
+
+      <p className="text-[#D4D4D4]">
+        Velocity: {formatNumber(asteroid.y * 1000, 0)} km/h
+      </p>
+    </ChartTooltip>
+  );
 }
 
 function exportCSV(records: Asteroid[]) {
@@ -295,26 +355,8 @@ export default function CosmicWatch() {
                         width={28}
                       />
                         <Tooltip
-                            cursor={{ fill: "#FFFFFF", fillOpacity: 0.04 }}
-                            contentStyle={{
-                                backgroundColor: "#1A1A1A",
-                                border: "1px solid #383838",
-                                borderRadius: 0,
-                                padding: "5px 8px",
-                                fontSize: "10px",
-                                fontFamily: "monospace",
-                                boxShadow: "none",
-                            }}
-                            labelStyle={{
-                                color: "#A3A3A3",
-                                fontSize: "10px",
-                                marginBottom: "2px",
-                            }}
-                            itemStyle={{
-                                color: "#60A5FA",
-                                fontSize: "10px",
-                                padding: 0,
-                            }}
+                          content={<DailyTooltip />}
+                          cursor={{ fill: "#FFFFFF", fillOpacity: 0.04 }}
                         />
                       <Bar
                         dataKey="count"
@@ -357,14 +399,10 @@ export default function CosmicWatch() {
                         tick={{ fill: "#888888", fontSize: 9 }}
                         width={36}
                       />
-                      <ZAxis type="number" range={[35, 35]} />
+                      <ZAxis type="number" range={[25, 25]} />
                       <Tooltip
-                        cursor={{ strokeDasharray: "3 3" }}
-                        contentStyle={{
-                          background: "#202020",
-                          border: "1px solid #404040",
-                          color: "#E5E5E5",
-                        }}
+                        content={<AsteroidTooltip />}
+                        cursor={{ stroke: "#777777", strokeDasharray: "3 3" }}
                       />
                       <Scatter
                         name="Other NEOs"

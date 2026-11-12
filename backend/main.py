@@ -23,7 +23,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
-frontend_url = os.getenv("FRONTEND_URL")
+frontend_url = os.getenv("FRONTEND_URL", "").strip()
 
 if frontend_url:
     allowed_origins.append(frontend_url.rstrip("/"))

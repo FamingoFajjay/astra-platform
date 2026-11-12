@@ -17,6 +17,8 @@ import SolarPulse from "./SolarPulse";
 import ExoAtlas from "./ExoAtlas";
 import AstroAlert from "./AstroAlert";
 
+const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
 type Module = {
   id: string;
   name: string;
@@ -108,13 +110,13 @@ function App() {
     setLoading(true);
 
     try {
-      const health = await fetch("http://127.0.0.1:8000/health");
+      const health = await fetch(`${API}/health`);
       if (!health.ok) throw new Error("Health check failed");
 
       const result = await health.json();
       if (result.status !== "ok") throw new Error("API unhealthy");
 
-      const response = await fetch("http://127.0.0.1:8000/modules");
+      const response = await fetch(`${API}/modules`);
       if (!response.ok) throw new Error("Modules request failed");
 
       const data: Module[] = await response.json();
@@ -130,7 +132,7 @@ function App() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/system/status"
+        `${API}/api/system/status`
       );
 
       if (!response.ok) {

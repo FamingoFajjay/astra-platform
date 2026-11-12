@@ -7,8 +7,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
+node_modules/
+dist/
 dist-ssr
 *.local
 
@@ -33,7 +33,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
-อะไร 
+
 # Database
 *.db
+*.db-*
 *.sqlite3

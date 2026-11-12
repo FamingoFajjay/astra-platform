@@ -51,10 +51,9 @@ function SolarTooltip({
   );
 }
 
-
 type EventResponse = { count: number; data: SolarEvent[] };
 type Filter = "ALL" | "FLR" | "GST";
-const API = "http://127.0.0.1:8000";
+const API = import.meta.env.VITE_API_URL;
 const panel = "border border-[#303030] bg-[#151515]";
 const control = "astra-control min-w-[155px] font-mono focus:border-[#F59E0B]";
 

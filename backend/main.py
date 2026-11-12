@@ -9,6 +9,13 @@ from database import get_exoplanets, get_exoplanet_stats
 from database import get_circulars, get_circular_stats
 from datetime import date
 import logging
+import os
+from fastapi.middleware.cors import CORSMiddleware
+
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 app = FastAPI(
     title="ASTRA API",
@@ -16,12 +23,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
+frontend_url = os.getenv("FRONTEND_URL")
+
+if frontend_url:
+    allowed_origins.append(frontend_url.rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=False,
     allow_methods=["GET"],
     allow_headers=["*"],

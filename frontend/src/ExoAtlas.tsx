@@ -10,7 +10,7 @@ import { Cell } from "recharts";
 import { ZAxis } from "recharts";
 import ChartTooltip from "./components/ChartTooltip";
 
-const API = "http://127.0.0.1:8000";
+const API = import.meta.env.VITE_API_URL;
 
 type Planet = {
   planet_name: string;
